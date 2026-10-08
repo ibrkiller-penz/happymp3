@@ -22,12 +22,12 @@
 
 ## 올리는 순서 (직접 해야 하는 일: Render 로그인·환경변수)
 ### 1) 서버 올리기 (Render)
-1. 이 폴더의 `server/` 를 GitHub 저장소로 올린다(비공개 권장). 저장소 맨 위에 `Dockerfile` 이 오도록 `server/` 안의 파일을 저장소 루트에 둔다.
-2. render.com → New → Web Service → 그 저장소 → **Docker** 선택(또는 `render.yaml` Blueprint).
+1. 이 폴더 전체가 GitHub 비공개 저장소다(루트의 `render.yaml` 이 `server/Dockerfile` 을 가리킨다).
+2. render.com → New → **Blueprint** → 그 저장소 선택 → `ACCESS_CODE` 값 입력 → Apply.
 3. **Environment** 에 넣을 값
    | 이름 | 값 |
    |---|---|
-   | `ACCESS_CODE` | 입장 비밀번호(`1004`) — 코드나 저장소에 적지 말고 여기서만 |
+   | `ACCESS_CODE` | 입장 비밀번호(허브와 같은 번호) — 코드나 저장소에 적지 말고 여기서만 |
    | `ALLOWED_ORIGINS` | `https://happymp3.web.app` |
    | `MAX_SECONDS` | `1800` (선택) |
    | `MAX_HEIGHT` | `720` (선택, MP4 최대 세로 해상도) |

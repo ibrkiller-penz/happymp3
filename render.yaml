@@ -1,10 +1,11 @@
-# Render(render.com) 에서 이 저장소를 Blueprint 로 올릴 때 쓰는 설정.
-# ACCESS_CODE 는 값을 여기에 적지 않는다. Render 화면(Environment)에서 직접 넣는다.
+# Render(render.com) Blueprint. 이 저장소 맨 위에 있어야 읽힌다.
+# ACCESS_CODE(입장 비밀번호)는 값을 여기에 적지 않는다. Render 화면에서 직접 넣는다.
 services:
   - type: web
     name: happymp3
     runtime: docker
-    dockerfilePath: ./Dockerfile
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: ./server
     plan: free
     healthCheckPath: /health
     envVars:

@@ -26,7 +26,7 @@ def load(monkeypatch, **env):
     return mod, TestClient(mod.app)
 
 
-H = {"X-Access-Code": "1004"}
+H = {"X-Access-Code": "tst1234"}
 YT = "https://www.youtube.com/watch?v=abc"
 
 
@@ -55,7 +55,7 @@ class FakeYDL:
 
 
 def test_health_open(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     assert c.get("/health").json() == {"ok": True}
 
 
@@ -65,14 +65,14 @@ def test_no_code_configured_refuses(monkeypatch):
 
 
 def test_code_required(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     assert c.post("/check").status_code == 403
     assert c.post("/check", headers={"X-Access-Code": "0000"}).status_code == 403
     assert c.post("/check", headers=H).status_code == 200
 
 
 def test_block_after_five_wrong(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     for _ in range(5):
         assert c.post("/check", headers={"X-Access-Code": "9999"}).status_code == 403
     # 한도를 넘으면 맞는 번호도 잠시 막힌다
@@ -80,7 +80,7 @@ def test_block_after_five_wrong(monkeypatch):
 
 
 def test_success_resets_counter(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     for _ in range(4):
         c.post("/check", headers={"X-Access-Code": "9999"})
     assert c.post("/check", headers=H).status_code == 200
@@ -89,24 +89,24 @@ def test_success_resets_counter(monkeypatch):
 
 
 def test_only_youtube(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     for bad in ("http://example.com/a", "file:///etc/passwd", "https://youtube.com.evil.com/x", "ftp://youtube.com/x", ""):
         assert c.post("/info", headers=H, json={"url": bad}).status_code == 400, bad
 
 
 def test_convert_needs_code(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     assert c.post("/convert", json={"url": YT, "format": "mp3"}).status_code == 403
 
 
 def test_bad_format(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     assert c.post("/convert", headers=H, json={"url": YT, "format": "exe"}).status_code == 400
 
 
 @pytest.mark.parametrize("fmt,ctype", [("mp3", "audio/mpeg"), ("mp4", "video/mp4")])
 def test_convert_download(monkeypatch, fmt, ctype):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
     r = c.post("/convert", headers=H, json={"url": YT, "format": fmt})
     assert r.status_code == 200
@@ -119,7 +119,7 @@ def test_convert_download(monkeypatch, fmt, ctype):
 
 
 def test_too_long(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004", MAX_SECONDS="30")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234", MAX_SECONDS="30")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
     assert c.post("/info", headers=H, json={"url": YT}).json()["tooLong"] is True
     assert c.post("/convert", headers=H, json={"url": YT, "format": "mp3"}).status_code == 400
@@ -128,7 +128,7 @@ def test_too_long(monkeypatch):
 
 
 def test_info_quality_options(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
     d = c.post("/info", headers=H, json={"url": YT}).json()
     assert d["mp3Rates"] == ["128", "192", "256", "320"]
@@ -136,7 +136,7 @@ def test_info_quality_options(monkeypatch):
 
 
 def test_quality_validation(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
     post = lambda **kw: c.post("/convert", headers=H, json={"url": YT, **kw}).status_code
     assert post(format="mp3", quality="320") == 200
@@ -148,7 +148,7 @@ def test_quality_validation(monkeypatch):
 
 
 def test_quality_reaches_ytdlp(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     seen = {}
 
     class Spy(FakeYDL):
@@ -166,7 +166,7 @@ def test_quality_reaches_ytdlp(monkeypatch):
 
 
 def test_busy(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
     assert mod._job.acquire(blocking=False)
     try:
@@ -176,7 +176,7 @@ def test_busy(monkeypatch):
 
 
 def test_google_required_when_configured(monkeypatch):
-    mod, c = load(monkeypatch, ACCESS_CODE="1004", ALLOWED_EMAILS="a@example.com")
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234", ALLOWED_EMAILS="a@example.com")
     assert c.post("/check", headers=H).status_code == 401  # 로그인 없음
     # firebase_admin 을 가짜로 바꿔 허용/비허용 계정을 시험
     import types
@@ -211,7 +211,7 @@ def test_google_required_when_configured(monkeypatch):
 
 
 def test_cors_origin(monkeypatch):
-    _, c = load(monkeypatch, ACCESS_CODE="1004")
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
     r = c.options("/check", headers={"Origin": "https://happymp3.web.app", "Access-Control-Request-Method": "POST", "Access-Control-Request-Headers": "x-access-code,content-type"})
     assert r.headers.get("access-control-allow-origin") == "https://happymp3.web.app"
     r2 = c.options("/check", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
@@ -221,7 +221,7 @@ def test_cors_origin(monkeypatch):
 @pytest.mark.skipif(not os.environ.get("LIVE_URL"), reason="LIVE_URL 이 없으면 건너뜀")
 @pytest.mark.parametrize("fmt", ["mp3", "mp4"])
 def test_live(monkeypatch, fmt):
-    _, c = load(monkeypatch, ACCESS_CODE="1004", MAX_HEIGHT="360", FFMPEG_LOCATION=os.environ.get("FFMPEG_LOCATION", ""))
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234", MAX_HEIGHT="360", FFMPEG_LOCATION=os.environ.get("FFMPEG_LOCATION", ""))
     r = c.post("/info", headers=H, json={"url": os.environ["LIVE_URL"]})
     assert r.status_code == 200, r.text
     r = c.post("/convert", headers=H, json={"url": os.environ["LIVE_URL"], "format": fmt})
