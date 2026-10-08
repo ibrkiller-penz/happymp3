@@ -165,6 +165,31 @@ def test_quality_reaches_ytdlp(monkeypatch):
     assert "height<=480" in seen["format"]
 
 
+class SearchYDL(FakeYDL):
+    def extract_info(self, url, download=False):
+        assert url.startswith("ytsearch8:")
+        return {"entries": [
+            {"id": "aaaaaaaaaaa", "title": "첫째", "uploader": "u1", "duration": 10},
+            {"id": "bad id", "title": "버림"},
+            {"id": None, "title": "버림2"},
+            {"id": "bbbbbbbbbbb", "title": "둘째", "channel": "c2", "duration": 20},
+        ]}
+
+
+def test_search(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", SearchYDL)
+    assert c.post("/search", json={"q": "노래"}).status_code == 403          # 비밀번호 필요
+    r = c.post("/search", headers=H, json={"q": "  노래   제목 "})
+    assert r.status_code == 200
+    res = r.json()["results"]
+    assert [x["title"] for x in res] == ["첫째", "둘째"]                      # 잘못된 id 는 걸러짐
+    assert res[0]["url"] == "https://www.youtube.com/watch?v=aaaaaaaaaaa"
+    assert res[1]["uploader"] == "c2"
+    assert c.post("/search", headers=H, json={"q": "   "}).status_code == 400
+    assert c.post("/search", headers=H, json={"q": "가" * 101}).status_code == 400
+
+
 def test_busy(monkeypatch):
     mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
     monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
@@ -216,6 +241,14 @@ def test_cors_origin(monkeypatch):
     assert r.headers.get("access-control-allow-origin") == "https://happymp3.web.app"
     r2 = c.options("/check", headers={"Origin": "https://evil.example", "Access-Control-Request-Method": "POST"})
     assert r2.headers.get("access-control-allow-origin") is None
+
+
+@pytest.mark.skipif(not os.environ.get("LIVE_URL"), reason="LIVE_URL 이 없으면 건너뜀")
+def test_live_search(monkeypatch):
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234", FFMPEG_LOCATION=os.environ.get("FFMPEG_LOCATION", ""))
+    r = c.post("/search", headers=H, json={"q": "Big Buck Bunny"})
+    assert r.status_code == 200, r.text
+    assert len(r.json()["results"]) >= 3
 
 
 @pytest.mark.skipif(not os.environ.get("LIVE_URL"), reason="LIVE_URL 이 없으면 건너뜀")

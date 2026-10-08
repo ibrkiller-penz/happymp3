@@ -64,6 +64,10 @@ class UrlBody(BaseModel):
     quality: str | None = None   # mp3: 128·192·256·320(kbps), mp4: 240·360·480·720·1080(세로 해상도)
 
 
+class SearchBody(BaseModel):
+    q: str
+
+
 def client_ip(request: Request) -> str:
     fwd = request.headers.get("x-forwarded-for", "")
     return (fwd.split(",")[0].strip() if fwd else (request.client.host if request.client else "?")) or "?"
@@ -175,6 +179,32 @@ def health():
 def check(request: Request, _: None = Depends(access)):
     """비밀번호(와 구글 로그인)가 맞는지만 확인한다."""
     return {"ok": True}
+
+
+@app.post("/search")
+def search(body: SearchBody, request: Request, _: None = Depends(access)):
+    """검색어로 유튜브 영상을 찾는다(y2mate 처럼 링크 대신 검색어를 넣을 수 있게)."""
+    q = re.sub(r"\s+", " ", (body.q or "")).strip()
+    if not q or len(q) > 100:
+        raise HTTPException(400, "검색어를 1~100자로 입력하세요.")
+    try:
+        with yt_dlp.YoutubeDL({**base_opts(), "extract_flat": True, "skip_download": True}) as ydl:
+            d = ydl.extract_info(f"ytsearch8:{q}", download=False)
+    except yt_dlp.utils.DownloadError as e:
+        raise HTTPException(400, "검색하지 못했습니다: " + re.sub(r"\x1b\[[0-9;]*m", "", str(e))[:200])
+    out = []
+    for e in (d.get("entries") or []):
+        vid = e.get("id")
+        if not vid or not re.fullmatch(r"[A-Za-z0-9_-]{11}", vid):
+            continue
+        out.append({
+            "url": f"https://www.youtube.com/watch?v={vid}",
+            "title": e.get("title"),
+            "uploader": e.get("uploader") or e.get("channel"),
+            "duration": e.get("duration"),
+            "thumbnail": f"https://i.ytimg.com/vi/{vid}/mqdefault.jpg",
+        })
+    return {"results": out}
 
 
 @app.post("/info")

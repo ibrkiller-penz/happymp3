@@ -69,6 +69,13 @@
   .opts select { font-size: 15px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; min-height: 44px; }
   .opts .hint { font-size: 12.5px; color: var(--muted); }
 
+  .results { margin-top: 18px; display: grid; gap: 10px; text-align: left; }
+  .item { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px; cursor: pointer; width: 100%; font: inherit; color: inherit; }
+  .item:hover, .item:focus-visible { border-color: var(--accent); outline: none; background: #fffafb; }
+  .item img { width: 120px; height: 68px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
+  .item .t { font-weight: 700; font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .item .m { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
   .notice { margin: 30px auto 0; max-width: 600px; font-size: 12.5px; color: var(--muted); line-height: 1.75;
     background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; text-align: left; }
   .tags { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
@@ -107,14 +114,16 @@
   <!-- 변환기 -->
   <section id="app" class="hidden">
     <h1>유튜브 MP3 · MP4 변환</h1>
-    <p class="sub">링크를 붙여 넣으면 바로 영상 정보가 나와요.<br>형식과 화질을 고르고 내려받기를 누르세요.</p>
+    <p class="sub">링크를 붙여 넣으면 바로 영상 정보가 나오고, 검색어를 넣으면 영상 목록이 나와요.<br>형식과 화질을 고르고 내려받기를 누르세요.</p>
 
     <div class="search-box">
-      <input id="urlInput" type="text" inputmode="url" placeholder="유튜브 링크를 여기에 붙여 넣으세요" aria-label="유튜브 링크" autofocus />
+      <input id="urlInput" type="text" inputmode="url" placeholder="유튜브 링크를 붙여 넣거나 검색어를 입력하세요" aria-label="유튜브 링크 또는 검색어" autofocus />
       <button class="icon-btn" id="pasteBtn" type="button" title="클립보드에서 붙여 넣기">붙여넣기</button>
       <button class="btn" id="infoBtn" type="button">변환</button>
     </div>
     <div id="status" role="status"></div>
+
+    <div class="results hidden" id="results" aria-label="검색 결과"></div>
 
     <div class="result hidden" id="result">
       <div class="video">
@@ -212,11 +221,37 @@
   $("outBtn").addEventListener("click", () => backToGate(""));
 
   /* 링크 → 정보 (붙여 넣으면 자동으로 가져온다) */
+  async function runSearch(q) {
+    if (busy) return;
+    busy = true; $("infoBtn").disabled = true; $("result").classList.add("hidden"); $("results").classList.add("hidden"); status("검색하는 중…");
+    try {
+      const r = await call("/search", { q });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      const list = (await r.json()).results || [];
+      const box = $("results"); box.innerHTML = "";
+      if (!list.length) { status("검색 결과가 없어요."); return; }
+      list.forEach((v) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "item";
+        const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.src = v.thumbnail || "";
+        const d = document.createElement("div"); d.style.minWidth = "0";
+        const t = document.createElement("div"); t.className = "t"; t.textContent = v.title || "제목 없음";
+        const m = document.createElement("div"); m.className = "m"; m.textContent = [v.uploader, fmtDur(v.duration)].filter(Boolean).join(" · ");
+        d.append(t, m); b.append(img, d);
+        b.addEventListener("click", () => { $("urlInput").value = v.url; box.classList.add("hidden"); getInfo(); });
+        box.append(b);
+      });
+      box.classList.remove("hidden"); status("");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { busy = false; $("infoBtn").disabled = false; }
+  }
+
   async function getInfo() {
     const url = $("urlInput").value.trim();
-    if (!url) { status("유튜브 링크를 입력해 주세요.", "error"); return; }
-    if (!isYoutube(url)) { status("유튜브 링크(youtube.com, youtu.be)만 사용할 수 있어요.", "error"); return; }
+    if (!url) { status("유튜브 링크나 검색어를 입력해 주세요.", "error"); return; }
+    if (!isYoutube(url)) { return runSearch(url); }
     if (busy) return;
+    $("results").classList.add("hidden");
     busy = true; $("infoBtn").disabled = true; $("result").classList.add("hidden"); status("영상 정보를 가져오는 중…");
     try {
       const r = await call("/info", { url });
