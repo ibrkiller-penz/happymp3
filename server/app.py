@@ -39,6 +39,9 @@ FFMPEG_LOCATION = os.environ.get("FFMPEG_LOCATION", "")
 # 유튜브 주소만 받는다(다른 주소로 서버를 이용하는 것을 막는다)
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be"}
 
+MP3_RATES = ("128", "192", "256", "320")
+MP4_HEIGHTS = (240, 360, 480, 720, 1080)
+
 FAIL_LIMIT = 5
 BLOCK_SECONDS = 600
 _fails: dict[str, list[float]] = {}   # 주소 -> [틀린 횟수, 차단이 풀리는 시각]
@@ -58,6 +61,7 @@ app.add_middleware(
 class UrlBody(BaseModel):
     url: str
     format: str = "mp3"
+    quality: str | None = None   # mp3: 128·192·256·320(kbps), mp4: 240·360·480·720·1080(세로 해상도)
 
 
 def client_ip(request: Request) -> str:
@@ -135,6 +139,33 @@ def safe_name(title: str, ext: str) -> str:
     return f"{t}.{ext}"
 
 
+def pick_rate(q: str | None) -> str:
+    if q in (None, ""):
+        return "192"
+    if str(q) not in MP3_RATES:
+        raise HTTPException(400, "MP3 음질은 128·192·256·320 중에서 고르세요.")
+    return str(q)
+
+
+def pick_height(q: str | None) -> int:
+    if q in (None, ""):
+        return MAX_HEIGHT
+    try:
+        h = int(q)
+    except ValueError:
+        raise HTTPException(400, "MP4 화질이 올바르지 않습니다.")
+    if h not in MP4_HEIGHTS or h > MAX_HEIGHT:
+        raise HTTPException(400, f"MP4 화질은 {', '.join(str(x) for x in MP4_HEIGHTS if x <= MAX_HEIGHT)} 중에서 고르세요.")
+    return h
+
+
+def height_options(d: dict) -> list[int]:
+    """영상에 실제로 있는 화질 중, 서버 한도(MAX_HEIGHT) 이하의 표준 화질 목록."""
+    have = [f.get("height") or 0 for f in (d.get("formats") or []) if f.get("vcodec") not in (None, "none")]
+    top = max(have) if have else 0
+    return [h for h in MP4_HEIGHTS if h <= MAX_HEIGHT and h <= top]
+
+
 @app.get("/health")
 def health():
     return {"ok": True}
@@ -161,6 +192,8 @@ def info(body: UrlBody, request: Request, _: None = Depends(access)):
         "duration": d.get("duration"),
         "tooLong": bool(d.get("duration") and d["duration"] > MAX_SECONDS),
         "maxSeconds": MAX_SECONDS,
+        "mp3Rates": list(MP3_RATES),
+        "mp4Heights": height_options(d),
     }
 
 
@@ -170,6 +203,8 @@ def convert(body: UrlBody, request: Request, _: None = Depends(access)):
     fmt = (body.format or "mp3").lower()
     if fmt not in ("mp3", "mp4"):
         raise HTTPException(400, "형식은 mp3 또는 mp4 만 가능합니다.")
+    rate = pick_rate(body.quality) if fmt == "mp3" else None
+    height = pick_height(body.quality) if fmt == "mp4" else None
     if not _job.acquire(blocking=False):
         raise HTTPException(429, "다른 변환이 진행 중입니다. 잠시 뒤에 다시 시도하세요.")
     tmp = tempfile.mkdtemp(prefix="happymp3_")
@@ -177,9 +212,9 @@ def convert(body: UrlBody, request: Request, _: None = Depends(access)):
     try:
         opts = {**base_opts(), "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s")}
         if fmt == "mp3":
-            opts.update({"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": "192"}]})
+            opts.update({"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": rate}]})
         else:
-            h = MAX_HEIGHT
+            h = height
             opts.update({
                 "format": f"bv*[vcodec^=avc1][height<={h}]+ba[ext=m4a]/bv*[height<={h}]+ba/b[height<={h}]/b",
                 "merge_output_format": "mp4",

@@ -45,7 +45,8 @@ class FakeYDL:
         return False
 
     def extract_info(self, url, download=False):
-        return {"id": "abc", "title": "시험: 노래/제목?", "thumbnail": "t.jpg", "uploader": "u", "duration": self.dur}
+        return {"id": "abc", "title": "시험: 노래/제목?", "thumbnail": "t.jpg", "uploader": "u", "duration": self.dur,
+                "formats": [{"height": 360, "vcodec": "avc1"}, {"height": 720, "vcodec": "avc1"}, {"height": 1080, "vcodec": "vp9"}, {"height": None, "vcodec": "none"}]}
 
     def process_ie_result(self, d, download=True):
         fmt = "mp3" if "postprocessors" in self.opts else "mp4"
@@ -124,6 +125,44 @@ def test_too_long(monkeypatch):
     assert c.post("/convert", headers=H, json={"url": YT, "format": "mp3"}).status_code == 400
     # 실패해도 자리를 반납해서 다음 요청이 막히지 않아야 한다
     assert c.post("/convert", headers=H, json={"url": YT, "format": "mp3"}).status_code == 400
+
+
+def test_info_quality_options(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
+    d = c.post("/info", headers=H, json={"url": YT}).json()
+    assert d["mp3Rates"] == ["128", "192", "256", "320"]
+    assert d["mp4Heights"] == [240, 360, 480, 720]  # 서버 한도 720 이하, 영상 최고 화질(1080)보다 낮은 표준 화질만
+
+
+def test_quality_validation(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", FakeYDL)
+    post = lambda **kw: c.post("/convert", headers=H, json={"url": YT, **kw}).status_code
+    assert post(format="mp3", quality="320") == 200
+    assert post(format="mp3", quality="999") == 400
+    assert post(format="mp4", quality="360") == 200
+    assert post(format="mp4", quality="1080") == 400   # 서버 한도(기본 720) 초과
+    assert post(format="mp4", quality="abc") == 400
+    assert post(format="mp4", quality="500") == 400
+
+
+def test_quality_reaches_ytdlp(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="1004")
+    seen = {}
+
+    class Spy(FakeYDL):
+        def __init__(self, opts):
+            super().__init__(opts)
+            if "outtmpl" in opts:
+                seen.update(opts)
+
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", Spy)
+    c.post("/convert", headers=H, json={"url": YT, "format": "mp3", "quality": "320"})
+    assert seen["postprocessors"][0]["preferredquality"] == "320"
+    seen.clear()
+    c.post("/convert", headers=H, json={"url": YT, "format": "mp4", "quality": "480"})
+    assert "height<=480" in seen["format"]
 
 
 def test_busy(monkeypatch):
