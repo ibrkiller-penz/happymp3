@@ -1,4 +1,4 @@
-"""HappyMP3 서버: 유튜브 링크를 MP3 또는 MP4 파일로 바꿔 내려받게 해 준다.
+"""HappyMpX 서버: 유튜브 링크를 MP3 또는 MP4 파일로 바꿔 내려받게 해 준다.
 
 입장 비밀번호(ACCESS_CODE)를 서버가 직접 확인한다. 틀린 시도가 5번 쌓이면 그 주소를 10분 동안 막는다.
 ALLOWED_EMAILS 를 정하면 구글 로그인 확인도 함께 한다(선택).
@@ -48,7 +48,7 @@ _fails: dict[str, list[float]] = {}   # 주소 -> [틀린 횟수, 차단이 풀�
 _lock = threading.Lock()
 _job = threading.BoundedSemaphore(1)  # 한 번에 하나만 변환(무료 서버의 메모리·시간 보호)
 
-app = FastAPI(title="HappyMP3", docs_url=None, redoc_url=None, openapi_url=None)
+app = FastAPI(title="HappyMpX", docs_url=None, redoc_url=None, openapi_url=None)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,

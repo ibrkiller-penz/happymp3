@@ -1,10 +1,10 @@
-# HappyMP3 웹서버 (MP3 · MP4)
+# HappyMpX 웹서버 (MP3 · MP4)
 
 유튜브 링크를 **MP3(소리) 또는 MP4(영상)** 파일로 바꿔 **내려받게** 하는 웹페이지와 서버.
 입장할 때 **비밀번호를 서버가 직접 확인**한다(화면만 막는 것이 아니다).
 
 ```
-26_HappyMP3-웹서버/
+26_HappyMpX-웹서버/
   server/   변환 서버 (FastAPI + yt-dlp + ffmpeg)  → Render 에 올린다
   web/      웹페이지 (index.html + config.js)       → Firebase Hosting happymp3.web.app 에 올린다
   firebase.json · .firebaserc                      → 웹페이지 배포 설정(프로젝트 happymp3)
