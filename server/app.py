@@ -11,6 +11,8 @@ ALLOWED_EMAILS 를 정하면 구글 로그인 확인도 함께 한다(선택).
   ALLOWED_EMAILS     (선택) 쉼표로 구분한 구글 이메일. 정하면 Authorization: Bearer <ID 토큰> 도 필요
   FIREBASE_PROJECT_ID (선택) ID 토큰 확인용 프로젝트(기본 happymp3)
   FFMPEG_LOCATION    (선택) ffmpeg 폴더 또는 실행 파일 경로
+  COOKIES_FILE       (선택) 유튜브 쿠키 파일 경로(Render 의 Secret File). 서버 주소가 막힐 때의 마지막 수단
+  DIAG_ENABLED       1 이면 /diag(접속 방식 진단)를 연다. 확인이 끝나면 끈다
 """
 import hmac
 import os
@@ -35,12 +37,20 @@ MAX_HEIGHT = int(os.environ.get("MAX_HEIGHT", "720"))
 ALLOWED_EMAILS = [e.strip().lower() for e in os.environ.get("ALLOWED_EMAILS", "").split(",") if e.strip()]
 FIREBASE_PROJECT_ID = os.environ.get("FIREBASE_PROJECT_ID", "happymp3")
 FFMPEG_LOCATION = os.environ.get("FFMPEG_LOCATION", "")
+COOKIES_FILE = os.environ.get("COOKIES_FILE", "")
+DIAG_ENABLED = os.environ.get("DIAG_ENABLED", "") == "1"
+DIAG_URL = "https://www.youtube.com/watch?v=aqz-KE-bpKQ"  # 저작권이 허락된 영상(Blender 재단, CC-BY)
 
 # 유튜브 주소만 받는다(다른 주소로 서버를 이용하는 것을 막는다)
 YOUTUBE_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "music.youtube.com", "youtu.be", "www.youtu.be"}
 
 MP3_RATES = ("128", "192", "256", "320")
 MP4_HEIGHTS = (240, 360, 480, 720, 1080)
+
+# 유튜브는 클라우드 서버 주소를 "로봇이 아닌지 확인하세요"로 막는 일이 많다. 접속 방식(클라이언트)에 따라 막힘이 다르므로
+# 막히면 다음 방식으로 차례로 시도하고, 통한 방식은 기억해서 다음에 먼저 쓴다.
+CLIENT_STRATEGIES = [None, ["tv_simply"], ["android_vr"], ["tv_downgraded"], ["web_embedded"], ["visionos"], ["mweb"], ["ios"], ["web_safari"]]
+_good_strategy = None
 
 FAIL_LIMIT = 5
 BLOCK_SECONDS = 600
@@ -130,11 +140,44 @@ def clean_url(url: str) -> str:
     return url
 
 
-def base_opts() -> dict:
+def base_opts(clients=None) -> dict:
     o = {"quiet": True, "no_warnings": True, "noplaylist": True, "socket_timeout": 20, "retries": 2, "restrictfilenames": False}
     if FFMPEG_LOCATION:
         o["ffmpeg_location"] = FFMPEG_LOCATION
+    if clients:
+        o["extractor_args"] = {"youtube": {"player_client": list(clients)}}
+    if COOKIES_FILE and os.path.exists(COOKIES_FILE):
+        # yt-dlp 는 쿠키 파일에 다시 쓰므로 읽기 전용 위치(Secret File)를 그대로 쓰지 않고 복사본을 쓴다
+        tmpc = os.path.join(tempfile.gettempdir(), "yt_cookies.txt")
+        if not os.path.exists(tmpc):
+            shutil.copyfile(COOKIES_FILE, tmpc)
+        o["cookiefile"] = tmpc
     return o
+
+
+def is_block_error(e: Exception) -> bool:
+    t = str(e).lower()
+    return "sign in to confirm" in t or "not a bot" in t or "confirm you" in t or "po token" in t or "http error 403" in t
+
+
+def with_fallback(fn):
+    """fn(clients) 를 접속 방식을 바꿔 가며 부른다. 막힘 오류일 때만 다음 방식으로 넘어간다."""
+    global _good_strategy
+    order = list(CLIENT_STRATEGIES)
+    if _good_strategy in order:
+        order.remove(_good_strategy)
+        order.insert(0, _good_strategy)
+    last = None
+    for c in order:
+        try:
+            r = fn(c)
+            _good_strategy = c
+            return r
+        except yt_dlp.utils.DownloadError as e:
+            last = e
+            if not is_block_error(e):
+                raise
+    raise last
 
 
 def safe_name(title: str, ext: str) -> str:
@@ -210,9 +253,13 @@ def search(body: SearchBody, request: Request, _: None = Depends(access)):
 @app.post("/info")
 def info(body: UrlBody, request: Request, _: None = Depends(access)):
     url = clean_url(body.url)
+
+    def go(clients):
+        with yt_dlp.YoutubeDL({**base_opts(clients), "skip_download": True}) as ydl:
+            return ydl.extract_info(url, download=False)
+
     try:
-        with yt_dlp.YoutubeDL({**base_opts(), "skip_download": True}) as ydl:
-            d = ydl.extract_info(url, download=False)
+        d = with_fallback(go)
     except yt_dlp.utils.DownloadError as e:
         raise HTTPException(400, "영상 정보를 가져오지 못했습니다: " + re.sub(r"\x1b\[[0-9;]*m", "", str(e))[:200])
     return {
@@ -237,24 +284,30 @@ def convert(body: UrlBody, request: Request, _: None = Depends(access)):
     height = pick_height(body.quality) if fmt == "mp4" else None
     if not _job.acquire(blocking=False):
         raise HTTPException(429, "다른 변환이 진행 중입니다. 잠시 뒤에 다시 시도하세요.")
-    tmp = tempfile.mkdtemp(prefix="happymp3_")
+    tmp = tempfile.mkdtemp(prefix="happympx_")
     started_ok = False
     try:
-        opts = {**base_opts(), "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s")}
-        if fmt == "mp3":
-            opts.update({"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": rate}]})
-        else:
-            h = height
-            opts.update({
-                "format": f"bv*[vcodec^=avc1][height<={h}]+ba[ext=m4a]/bv*[height<={h}]+ba/b[height<={h}]/b",
-                "merge_output_format": "mp4",
-            })
-        try:
+        def go(clients):
+            for f in os.listdir(tmp):          # 앞선 시도가 남긴 조각은 지운다
+                os.remove(os.path.join(tmp, f))
+            opts = {**base_opts(clients), "outtmpl": os.path.join(tmp, "%(id)s.%(ext)s")}
+            if fmt == "mp3":
+                opts.update({"format": "bestaudio/best", "postprocessors": [{"key": "FFmpegExtractAudio", "preferredcodec": "mp3", "preferredquality": rate}]})
+            else:
+                h = height
+                opts.update({
+                    "format": f"bv*[vcodec^=avc1][height<={h}]+ba[ext=m4a]/bv*[height<={h}]+ba/b[height<={h}]/b",
+                    "merge_output_format": "mp4",
+                })
             with yt_dlp.YoutubeDL(opts) as ydl:
                 d = ydl.extract_info(url, download=False)
                 if d.get("duration") and d["duration"] > MAX_SECONDS:
                     raise HTTPException(400, f"영상이 너무 깁니다(최대 {MAX_SECONDS // 60}분).")
                 ydl.process_ie_result(d, download=True)
+                return d
+
+        try:
+            d = with_fallback(go)
         except yt_dlp.utils.DownloadError as e:
             raise HTTPException(400, "변환에 실패했습니다: " + re.sub(r"\x1b\[[0-9;]*m", "", str(e))[:200])
         files = [f for f in os.listdir(tmp) if f.lower().endswith("." + fmt)]
@@ -277,3 +330,30 @@ def convert(body: UrlBody, request: Request, _: None = Depends(access)):
         if not started_ok:
             shutil.rmtree(tmp, ignore_errors=True)
             _job.release()
+
+
+_diag_last = 0.0
+
+
+@app.get("/diag")
+def diag():
+    """서버에서 어떤 접속 방식이 유튜브에 막히지 않는지 본다. 고정된 허락 영상 하나만 조회하고(내려받지 않음),
+    20초에 한 번만 돌며, DIAG_ENABLED=1 일 때만 열린다."""
+    global _diag_last
+    if not DIAG_ENABLED:
+        raise HTTPException(404, "not found")
+    now = time.time()
+    with _lock:
+        if now - _diag_last < 20:
+            raise HTTPException(429, "잠시 뒤에 다시 시도하세요.")
+        _diag_last = now
+    res = []
+    for c in CLIENT_STRATEGIES:
+        name = ",".join(c) if c else "기본"
+        try:
+            with yt_dlp.YoutubeDL({**base_opts(c), "skip_download": True}) as ydl:
+                d = ydl.extract_info(DIAG_URL, download=False)
+            res.append({"client": name, "ok": True, "formats": len(d.get("formats") or [])})
+        except Exception as e:  # noqa: BLE001
+            res.append({"client": name, "ok": False, "error": re.sub(r"\x1b\[[0-9;]*m", "", str(e))[:160]})
+    return {"ytdlp": yt_dlp.version.__version__, "cookies": bool(COOKIES_FILE and os.path.exists(COOKIES_FILE)), "results": res}

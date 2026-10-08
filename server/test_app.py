@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 
 def load(monkeypatch, **env):
-    for k in ("ACCESS_CODE", "ALLOWED_EMAILS", "MAX_SECONDS"):
+    for k in ("ACCESS_CODE", "ALLOWED_EMAILS", "MAX_SECONDS", "DIAG_ENABLED", "COOKIES_FILE"):
         monkeypatch.delenv(k, raising=False)
     for k, v in env.items():
         monkeypatch.setenv(k, v)
@@ -188,6 +188,80 @@ def test_search(monkeypatch):
     assert res[1]["uploader"] == "c2"
     assert c.post("/search", headers=H, json={"q": "   "}).status_code == 400
     assert c.post("/search", headers=H, json={"q": "가" * 101}).status_code == 400
+
+
+class BotBlockedYDL(FakeYDL):
+    """기본 접속 방식은 '로봇이 아님을 확인' 으로 막히고, tv_simply 로는 통한다."""
+
+    def __init__(self, opts):
+        super().__init__(opts)
+        ea = (opts.get("extractor_args") or {}).get("youtube", {})
+        self.clients = ea.get("player_client")
+
+    def extract_info(self, url, download=False):
+        if self.clients != ["tv_simply"]:
+            raise yt_dlp_error("ERROR: [youtube] abc: Sign in to confirm you're not a bot.")
+        return super().extract_info(url, download)
+
+
+def yt_dlp_error(msg):
+    import yt_dlp
+    return yt_dlp.utils.DownloadError(msg)
+
+
+def test_fallback_to_working_client(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
+    monkeypatch.setattr(mod, "_good_strategy", None)
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", BotBlockedYDL)
+    r = c.post("/info", headers=H, json={"url": YT})
+    assert r.status_code == 200, r.text
+    assert mod._good_strategy == ["tv_simply"]          # 통한 방식을 기억한다
+    r = c.post("/convert", headers=H, json={"url": YT, "format": "mp3"})
+    assert r.status_code == 200, r.text
+
+
+def test_non_block_error_is_not_retried(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
+    monkeypatch.setattr(mod, "_good_strategy", None)
+    calls = []
+
+    class Private(FakeYDL):
+        def extract_info(self, url, download=False):
+            calls.append(1)
+            raise yt_dlp_error("ERROR: [youtube] abc: Private video")
+
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", Private)
+    r = c.post("/info", headers=H, json={"url": YT})
+    assert r.status_code == 400 and len(calls) == 1      # 막힘이 아닌 오류는 방식을 바꿔 다시 시도하지 않는다
+
+
+def test_all_blocked_message(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234")
+    monkeypatch.setattr(mod, "_good_strategy", None)
+
+    class Blocked(FakeYDL):
+        def extract_info(self, url, download=False):
+            raise yt_dlp_error("ERROR: Sign in to confirm you're not a bot")
+
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", Blocked)
+    r = c.post("/info", headers=H, json={"url": YT})
+    assert r.status_code == 400 and "bot" in r.json()["detail"]
+
+
+def test_diag_off_by_default(monkeypatch):
+    _, c = load(monkeypatch, ACCESS_CODE="tst1234")
+    assert c.get("/diag").status_code == 404
+
+
+def test_diag_on(monkeypatch):
+    mod, c = load(monkeypatch, ACCESS_CODE="tst1234", DIAG_ENABLED="1")
+    monkeypatch.setattr(mod, "_diag_last", 0.0)
+    monkeypatch.setattr(mod.yt_dlp, "YoutubeDL", BotBlockedYDL)
+    r = c.get("/diag")
+    assert r.status_code == 200
+    res = {x["client"]: x["ok"] for x in r.json()["results"]}
+    assert res["tv_simply"] is True and res["기본"] is False
+    assert c.get("/diag").status_code == 429              # 20초 제한
 
 
 def test_busy(monkeypatch):
