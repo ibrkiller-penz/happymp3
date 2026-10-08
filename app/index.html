@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 32 32%27%3E%3Crect width=%2732%27 height=%2732%27 rx=%278%27 fill=%27%23ee1e58%27/%3E%3Ctext x=%2716%27 y=%2724%27 font-size=%2722%27 text-anchor=%27middle%27 fill=%27white%27%3E%E2%99%AA%3C/text%3E%3C/svg%3E" />
+<title>HappyMpX · 유튜브 MP3 MP4 변환</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1f2430; --muted: #6b7280;
+    --accent: #ee1e58; --accent-hover: #d5164c; --soft: #fde8ee; --border: #e5e7eb; --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px;
+    background: var(--card); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; }
+  .brand .icon { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;
+    font-size: 13px; color: var(--muted); cursor: pointer; min-height: 40px; }
+  .ghost:hover { background: #f3f4f6; }
+  main { max-width: 760px; margin: 0 auto; padding: 44px 20px 56px; text-align: center; }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -0.5px; }
+  p.sub { color: var(--muted); margin: 0 0 26px; font-size: 15px; line-height: 1.6; }
+  .hidden { display: none !important; }
+
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 12px 28px;
+    font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 46px; }
+  .btn:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn:disabled { opacity: .55; cursor: not-allowed; }
+  .btn.big { width: 100%; border-radius: 14px; min-height: 54px; font-size: 17px; }
+
+  /* 입장 */
+  .gate { max-width: 380px; margin: 28px auto 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.05); }
+  .gate input { width: 100%; font-size: 22px; letter-spacing: 6px; text-align: center; padding: 12px;
+    border: 2px solid var(--border); border-radius: 12px; outline: none; margin: 12px 0 14px; }
+  .gate input:focus { border-color: var(--accent); }
+
+  /* 링크 입력 */
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--card); border: 2px solid var(--accent);
+    border-radius: 999px; padding: 6px 6px 6px 22px; box-shadow: 0 6px 20px rgba(238,30,88,.10); }
+  .search-box input { flex: 1; min-width: 0; border: none; outline: none; font-size: 16px; padding: 12px 0; background: transparent; color: var(--text); }
+  .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 8px; font-size: 13px; min-height: 40px; white-space: nowrap; }
+  .icon-btn:hover { color: var(--accent); }
+
+  #status { margin-top: 14px; font-size: 13.5px; color: var(--muted); min-height: 22px; }
+  #status.error { color: #d5164c; }
+  #status.ok { color: var(--ok); font-weight: 600; }
+
+  /* 결과 */
+  .result { margin-top: 22px; background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 20px; text-align: left; }
+  .video { display: flex; gap: 16px; align-items: center; }
+  .video img { width: 168px; height: 94px; object-fit: cover; border-radius: 10px; flex-shrink: 0; background: #eee; }
+  .video .title { font-weight: 700; font-size: 16px; margin-bottom: 4px; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .video .meta { font-size: 13px; color: var(--muted); }
+  .warn { margin-top: 8px; font-size: 13px; color: #b45309; }
+
+  .tabs { display: flex; gap: 6px; margin-top: 18px; border-bottom: 1px solid var(--border); }
+  .tab { background: none; border: none; padding: 10px 18px; font-size: 15px; font-weight: 700; color: var(--muted);
+    cursor: pointer; border-bottom: 3px solid transparent; margin-bottom: -1px; min-height: 44px; }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); }
+  .tab:disabled { opacity: .4; cursor: not-allowed; }
+  .opts { display: flex; align-items: center; gap: 10px; margin: 16px 0 14px; flex-wrap: wrap; }
+  .opts label { font-size: 14px; color: var(--muted); font-weight: 600; }
+  .opts select { font-size: 15px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: #fff; min-height: 44px; }
+  .opts .hint { font-size: 12.5px; color: var(--muted); }
+
+  .results { margin-top: 18px; display: grid; gap: 10px; text-align: left; }
+  .item { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px; cursor: pointer; width: 100%; font: inherit; color: inherit; }
+  .item:hover, .item:focus-visible { border-color: var(--accent); outline: none; background: #fffafb; }
+  .item img { width: 120px; height: 68px; object-fit: cover; border-radius: 8px; flex-shrink: 0; background: #eee; }
+  .item .t { font-weight: 700; font-size: 14.5px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .item .m { font-size: 12.5px; color: var(--muted); margin-top: 3px; }
+  .notice { margin: 30px auto 0; max-width: 600px; font-size: 12.5px; color: var(--muted); line-height: 1.75;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; text-align: left; }
+  .tags { margin-top: 18px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .tags span { font-size: 12.5px; font-weight: 700; color: var(--accent); background: var(--soft); border-radius: 999px; padding: 5px 12px; }
+  .spinner { display: inline-block; width: 15px; height: 15px; border: 2px solid rgba(255,255,255,.45);
+    border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 560px) {
+    h1 { font-size: 24px; }
+    .search-box { border-radius: 20px; flex-wrap: wrap; padding: 10px 14px; }
+    .search-box .btn { width: 100%; }
+    .video { flex-direction: column; align-items: flex-start; }
+    .video img { width: 100%; height: auto; aspect-ratio: 16 / 9; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="icon">♪</div>HappyMpX</div>
+  <button class="ghost hidden" id="outBtn" type="button">나가기</button>
+</header>
+
+<main>
+  <!-- 입장 비밀번호 (허브에서 비밀번호를 입력하고 들어오면 건너뛴다) -->
+  <section id="gate" class="hidden">
+    <h1>🔒 비밀번호를 입력하세요</h1>
+    <p class="sub">저작권 문제가 있을 수 있어서 비밀번호를 아는 분만 들어갈 수 있어요.</p>
+    <form class="gate" id="gateForm" autocomplete="off">
+      <label for="code" style="font-weight:700">입장 비밀번호</label>
+      <input id="code" type="password" inputmode="numeric" autocomplete="off" maxlength="20" required />
+      <button class="btn big" id="gateBtn" type="submit">들어가기</button>
+      <div id="gateStatus" role="alert" style="margin-top:12px;font-size:13px;color:#d5164c"></div>
+    </form>
+  </section>
+
+  <!-- 변환기 -->
+  <section id="app" class="hidden">
+    <h1>유튜브 MP3 · MP4 변환</h1>
+    <p class="sub">링크를 붙여 넣으면 바로 영상 정보가 나오고, 검색어를 넣으면 영상 목록이 나와요.<br>형식과 화질을 고르고 내려받기를 누르세요.</p>
+
+    <div class="search-box">
+      <input id="urlInput" type="text" inputmode="url" placeholder="유튜브 링크를 붙여 넣거나 검색어를 입력하세요" aria-label="유튜브 링크 또는 검색어" autofocus />
+      <button class="icon-btn" id="pasteBtn" type="button" title="클립보드에서 붙여 넣기">붙여넣기</button>
+      <button class="btn" id="infoBtn" type="button">변환</button>
+    </div>
+    <div id="status" role="status"></div>
+
+    <div class="results hidden" id="results" aria-label="검색 결과"></div>
+
+    <div class="result hidden" id="result">
+      <div class="video">
+        <img id="thumb" alt="" />
+        <div style="min-width:0">
+          <div class="title" id="rTitle"></div>
+          <div class="meta" id="rMeta"></div>
+          <div class="warn hidden" id="rWarn"></div>
+        </div>
+      </div>
+
+      <div class="tabs" role="tablist" aria-label="형식">
+        <button class="tab" id="tabMp3" role="tab" aria-selected="true" type="button">MP3 · 소리</button>
+        <button class="tab" id="tabMp4" role="tab" aria-selected="false" type="button">MP4 · 영상</button>
+      </div>
+      <div class="opts">
+        <label for="quality" id="qLabel">음질</label>
+        <select id="quality"></select>
+        <span class="hint" id="qHint"></span>
+      </div>
+      <button class="btn big" id="dlBtn" type="button">내려받기</button>
+    </div>
+
+    <div class="tags"><span>광고 없음</span><span>가입 없음</span><span>MP3 · MP4</span></div>
+
+    <div class="notice">
+      <b>사용 전에 꼭 읽어 주세요.</b><br>
+      · 직접 만든 영상이나 이용을 허락받은 영상(저작권 만료·공유 허용)에만 쓰세요.<br>
+      · 저작권이 있는 영상은 유튜브 이용약관과 저작권법, 학교의 저작권 지침을 먼저 확인하세요.<br>
+      · 영상 길이 제한이 있고, 한 번에 하나만 변환돼요. 서버가 쉬고 있으면 첫 요청은 1분쯤 걸릴 수 있어요.
+    </div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  const API = (window.HAPPY_API || "").replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  const store = { get() { try { return sessionStorage.getItem("happy.code") || ""; } catch { return ""; } },
+                  set(v) { try { sessionStorage.setItem("happy.code", v); } catch {} },
+                  clear() { try { sessionStorage.removeItem("happy.code"); } catch {} } };
+  const needSetup = () => !API || /CHANGE-ME/i.test(API);
+  const isYoutube = (u) => /^(https?:\/\/)?((www|m|music)\.)?(youtube\.com|youtu\.be)\//i.test(u.trim());
+
+  let code = "", info = null, lastUrl = "", fmt = "mp3", busy = false, timer = 0;
+
+  /* 허브에서 비밀번호를 입력하고 넘어오면 주소 뒤의 #c=… 로 받는다. 받자마자 주소에서 지운다. */
+  (function takeCodeFromHash() {
+    const m = location.hash.match(/[#&]c=([^&]*)/);
+    if (!m) return;
+    try { code = decodeURIComponent(m[1]); } catch { code = ""; }
+    if (code) store.set(code);
+    try { history.replaceState(null, "", location.pathname + location.search); } catch {}
+  })();
+  if (!code) code = store.get();
+
+  function show(inApp) {
+    $("gate").classList.toggle("hidden", inApp);
+    $("app").classList.toggle("hidden", !inApp);
+    $("outBtn").classList.toggle("hidden", !inApp);
+    if (inApp) $("urlInput").focus(); else { $("code").value = ""; $("code").focus(); }
+  }
+  function status(msg, type) { const s = $("status"); s.textContent = msg || ""; s.className = type || ""; }
+  const fmtDur = (sec) => {
+    if (!sec && sec !== 0) return "";
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = String(Math.floor(sec % 60)).padStart(2, "0");
+    return h ? `${h}:${String(m).padStart(2, "0")}:${s}` : `${m}:${s}`;
+  };
+
+  async function call(path, body) {
+    return fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json", "X-Access-Code": code },
+      body: JSON.stringify(body || {}) });
+  }
+  async function errText(resp) {
+    let t = ""; try { const j = await resp.json(); t = j.detail || ""; } catch { try { t = await resp.text(); } catch {} }
+    return typeof t === "string" ? t : JSON.stringify(t);
+  }
+  function backToGate(msg) { store.clear(); code = ""; info = null; $("result").classList.add("hidden"); show(false); $("gateStatus").textContent = msg || ""; }
+
+  /* 입장 */
+  $("gateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("gateStatus").textContent = "";
+    if (needSetup()) { $("gateStatus").textContent = "서버 주소가 아직 설정되지 않았어요(config.js)."; return; }
+    code = $("code").value.trim();
+    $("gateBtn").disabled = true;
+    try {
+      const r = await call("/check");
+      if (r.ok) { store.set(code); show(true); }
+      else { code = ""; $("code").value = ""; $("gateStatus").textContent = (await errText(r)) || "들어갈 수 없어요."; }
+    } catch { $("gateStatus").textContent = "서버에 연결하지 못했어요. 잠시 뒤에 다시 시도하세요(서버가 쉬고 있으면 1분쯤 걸려요)."; }
+    finally { $("gateBtn").disabled = false; }
+  });
+  $("outBtn").addEventListener("click", () => backToGate(""));
+
+  /* 링크 → 정보 (붙여 넣으면 자동으로 가져온다) */
+  async function runSearch(q) {
+    if (busy) return;
+    busy = true; $("infoBtn").disabled = true; $("result").classList.add("hidden"); $("results").classList.add("hidden"); status("검색하는 중…");
+    try {
+      const r = await call("/search", { q });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      const list = (await r.json()).results || [];
+      const box = $("results"); box.innerHTML = "";
+      if (!list.length) { status("검색 결과가 없어요."); return; }
+      list.forEach((v) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "item";
+        const img = document.createElement("img"); img.alt = ""; img.loading = "lazy"; img.src = v.thumbnail || "";
+        const d = document.createElement("div"); d.style.minWidth = "0";
+        const t = document.createElement("div"); t.className = "t"; t.textContent = v.title || "제목 없음";
+        const m = document.createElement("div"); m.className = "m"; m.textContent = [v.uploader, fmtDur(v.duration)].filter(Boolean).join(" · ");
+        d.append(t, m); b.append(img, d);
+        b.addEventListener("click", () => { $("urlInput").value = v.url; box.classList.add("hidden"); getInfo(); });
+        box.append(b);
+      });
+      box.classList.remove("hidden"); status("");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { busy = false; $("infoBtn").disabled = false; }
+  }
+
+  async function getInfo() {
+    const url = $("urlInput").value.trim();
+    if (!url) { status("유튜브 링크나 검색어를 입력해 주세요.", "error"); return; }
+    if (!isYoutube(url)) { return runSearch(url); }
+    if (busy) return;
+    $("results").classList.add("hidden");
+    busy = true; $("infoBtn").disabled = true; $("result").classList.add("hidden"); status("영상 정보를 가져오는 중…");
+    try {
+      const r = await call("/info", { url });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      info = await r.json(); lastUrl = url;
+      $("thumb").src = info.thumbnail || ""; $("rTitle").textContent = info.title || "제목 없음";
+      $("rMeta").textContent = [info.uploader, fmtDur(info.duration)].filter(Boolean).join(" · ");
+      const w = $("rWarn");
+      if (info.tooLong) { w.textContent = `영상이 너무 길어요(최대 ${Math.floor(info.maxSeconds / 60)}분).`; w.classList.remove("hidden"); }
+      else w.classList.add("hidden");
+      $("tabMp4").disabled = !(info.mp4Heights && info.mp4Heights.length);
+      setFormat($("tabMp4").disabled ? "mp3" : fmt);
+      $("dlBtn").disabled = !!info.tooLong;
+      $("result").classList.remove("hidden"); status("");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { busy = false; $("infoBtn").disabled = false; }
+  }
+  $("infoBtn").addEventListener("click", getInfo);
+  $("urlInput").addEventListener("keydown", (e) => { if (e.key === "Enter") getInfo(); });
+  $("urlInput").addEventListener("input", () => {
+    clearTimeout(timer);
+    const v = $("urlInput").value.trim();
+    if (v && v !== lastUrl && isYoutube(v)) timer = setTimeout(getInfo, 450);
+  });
+  $("pasteBtn").addEventListener("click", async () => {
+    try { $("urlInput").value = await navigator.clipboard.readText(); $("urlInput").dispatchEvent(new Event("input")); }
+    catch { $("urlInput").focus(); status("붙여 넣기 권한이 없어요. 링크를 Ctrl+V 로 붙여 넣어 주세요."); }
+  });
+
+  /* 형식·화질 */
+  function setFormat(f) {
+    fmt = f;
+    $("tabMp3").setAttribute("aria-selected", f === "mp3");
+    $("tabMp4").setAttribute("aria-selected", f === "mp4");
+    const sel = $("quality"); sel.innerHTML = "";
+    if (f === "mp3") {
+      $("qLabel").textContent = "음질";
+      (info?.mp3Rates || ["128", "192", "256", "320"]).forEach((r) => sel.add(new Option(`${r} kbps`, r)));
+      sel.value = "192"; $("qHint").textContent = "숫자가 클수록 소리가 좋고 파일이 커요.";
+    } else {
+      $("qLabel").textContent = "화질";
+      const hs = info?.mp4Heights || [];
+      hs.slice().reverse().forEach((h) => sel.add(new Option(`${h}p`, String(h))));
+      sel.value = String(hs.includes(720) ? 720 : hs[hs.length - 1]);
+      $("qHint").textContent = "화질이 높을수록 오래 걸리고 파일이 커요.";
+    }
+  }
+  $("tabMp3").addEventListener("click", () => setFormat("mp3"));
+  $("tabMp4").addEventListener("click", () => { if (!$("tabMp4").disabled) setFormat("mp4"); });
+
+  /* 내려받기 */
+  function fileName(resp, fallback) {
+    const cd = resp.headers.get("Content-Disposition") || "";
+    let m = cd.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (m) { try { return decodeURIComponent(m[1]); } catch {} }
+    m = cd.match(/filename\s*=\s*"?([^";]+)"?/i);
+    return m ? m[1] : fallback;
+  }
+  $("dlBtn").addEventListener("click", async () => {
+    if (!lastUrl || busy) return;
+    busy = true;
+    const btn = $("dlBtn"), label = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>변환 중…';
+    status(fmt === "mp4" ? "영상을 변환하는 중이에요. 몇 분 걸릴 수 있어요…" : "소리를 변환하는 중이에요…");
+    try {
+      const r = await call("/convert", { url: lastUrl, format: fmt, quality: $("quality").value });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      const got = (r.headers.get("Content-Type") || "").toLowerCase();
+      if (fmt === "mp4" && !got.startsWith("video/")) throw new Error("서버가 MP4를 지원하지 않아요. 새 서버를 올렸는지 확인하세요.");
+      const name = fileName(r, "download." + fmt);
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      status("내려받기 완료: " + name, "ok");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { busy = false; btn.disabled = !!(info && info.tooLong); btn.textContent = label; }
+  });
+
+  /* 처음 */
+  (async () => {
+    if (needSetup()) { show(false); $("gateStatus").textContent = "서버 주소가 아직 설정되지 않았어요(config.js)."; return; }
+    if (code) {
+      try { const r = await call("/check"); if (r.ok) { show(true); return; } if (r.status === 429) { show(false); $("gateStatus").textContent = await errText(r); return; } } catch {}
+      store.clear(); code = "";
+    }
+    show(false);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -17,5 +17,3 @@ services:
         value: "1800"
       - key: MAX_HEIGHT
         value: "720"
-      - key: DIAG_ENABLED
-        value: "1"   # 유튜브 접속 방식 진단(/diag). 확인이 끝나면 이 두 줄을 지운다

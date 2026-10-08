@@ -1,4 +1,10 @@
-# HappyMpX 웹서버 (MP3 · MP4)
+# HappyMpX 웹서버 (MP3 · MP4) — 웹 운영은 중단(2026-10-08)
+
+> **상태**: 웹으로는 쓰지 않기로 했다. **유튜브가 클라우드 서버 주소를 막기 때문이다.** Render 서버에서 yt-dlp 의 접속 방식 9가지(기본, tv_simply, android_vr, tv_downgraded, web_embedded, visionos, mweb, ios, web_safari)를 모두 시험했지만 전부 "로봇이 아님을 확인하세요" 로 막혔다(같은 영상이 이 PC·집 인터넷에서는 된다).
+> 그래서 **프로그램 `HappyMpX.exe`(집 컴퓨터에서 만든 데스크톱 앱)만 제공**한다. 허브(https://penedu.web.app)의 HappyMpX 카드에서 비밀번호를 입력하면 zip 을 받는다.
+> `happymp3.web.app` 은 안내 페이지(`web/`)만 올라가 있다. 변환 서버와 변환 웹페이지(`server/`, `app/`)는 **쓰이지 않지만** 이 PC 와 집에서 돌려 볼 수 있게 남겨 둔다.
+>
+> 다시 웹으로 하고 싶다면: ① 집 컴퓨터에서 `server/` 를 돌리고 ngrok·Cloudflare 터널로 열어 `app/config.js` 의 주소를 바꾸거나, ② 서버에 유튜브 쿠키를 넣는 방법이 있다(계정 제한 위험). Render 서비스 `happympx` 는 쓰이지 않으니 지워도 된다.
 
 유튜브 링크를 **MP3(소리) 또는 MP4(영상)** 파일로 바꿔 **내려받게** 하는 웹페이지와 서버.
 입장할 때 **비밀번호를 서버가 직접 확인**한다(화면만 막는 것이 아니다).
@@ -6,7 +12,8 @@
 ```
 26_HappyMpX-웹서버/
   server/   변환 서버 (FastAPI + yt-dlp + ffmpeg)  → Render 에 올린다
-  web/      웹페이지 (index.html + config.js)       → Firebase Hosting happymp3.web.app 에 올린다
+  app/      변환 웹페이지 (index.html + config.js) — 지금은 쓰지 않음
+  web/      안내 페이지 → Firebase Hosting happymp3.web.app 에 올라가 있다
   firebase.json · .firebaserc                      → 웹페이지 배포 설정(프로젝트 happymp3)
 ```
 
