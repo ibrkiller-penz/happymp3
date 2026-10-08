@@ -2,7 +2,7 @@
 # ACCESS_CODE(입장 비밀번호)는 값을 여기에 적지 않는다. Render 화면에서 직접 넣는다.
 services:
   - type: web
-    name: happymp3
+    name: happympx
     runtime: docker
     dockerfilePath: ./server/Dockerfile
     dockerContext: ./server
