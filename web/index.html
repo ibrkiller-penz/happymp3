@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="robots" content="noindex" />
+<title>HappyMP3</title>
+<style>
+  :root {
+    --bg: #f4f5f7; --card: #ffffff; --text: #1f2430; --muted: #6b7280;
+    --accent: #ee1e58; --accent-hover: #d5164c; --border: #e5e7eb; --ok: #15803d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+    font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", sans-serif; }
+  header { display: flex; align-items: center; justify-content: space-between; padding: 16px 28px;
+    background: var(--card); border-bottom: 1px solid var(--border); }
+  .brand { display: flex; align-items: center; gap: 8px; font-size: 20px; font-weight: 800; }
+  .brand .icon { width: 32px; height: 32px; border-radius: 8px; background: var(--accent); color: #fff;
+    display: flex; align-items: center; justify-content: center; font-size: 18px; }
+  .ghost { background: none; border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px;
+    font-size: 13px; color: var(--muted); cursor: pointer; min-height: 40px; }
+  .ghost:hover { background: #f3f4f6; }
+  main { max-width: 720px; margin: 0 auto; padding: 48px 20px 64px; text-align: center; }
+  h1 { font-size: 28px; margin: 0 0 8px; }
+  p.sub { color: var(--muted); margin: 0 0 28px; font-size: 15px; line-height: 1.6; }
+  .hidden { display: none !important; }
+
+  .gate { max-width: 380px; margin: 40px auto 0; background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.05); }
+  .gate input { width: 100%; font-size: 22px; letter-spacing: 6px; text-align: center; padding: 12px;
+    border: 2px solid var(--border); border-radius: 12px; outline: none; margin-top: 14px; }
+  .gate input:focus { border-color: var(--accent); }
+
+  .btn { background: var(--accent); color: #fff; border: none; border-radius: 999px; padding: 12px 28px;
+    font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; min-height: 46px; }
+  .btn:hover:not(:disabled) { background: var(--accent-hover); }
+  .btn:disabled { opacity: .6; cursor: not-allowed; }
+  .btn.full { width: 100%; margin-top: 14px; border-radius: 12px; }
+
+  .search-box { display: flex; align-items: center; gap: 8px; background: var(--card); border: 2px solid var(--accent);
+    border-radius: 999px; padding: 6px 6px 6px 20px; box-shadow: 0 4px 16px rgba(238,30,88,.08); }
+  .search-box input { flex: 1; min-width: 0; border: none; outline: none; font-size: 15px; padding: 10px 0; background: transparent; color: var(--text); }
+  .icon-btn { background: none; border: none; color: var(--muted); cursor: pointer; padding: 8px; font-size: 13px; min-height: 40px; }
+  .icon-btn:hover { color: var(--accent); }
+
+  .formats { display: inline-flex; margin-top: 18px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); padding: 4px; }
+  .formats label { cursor: pointer; padding: 8px 22px; border-radius: 999px; font-weight: 700; font-size: 14px; color: var(--muted); }
+  .formats input { position: absolute; opacity: 0; pointer-events: none; }
+  .formats input:checked + span { color: #fff; background: var(--accent); border-radius: 999px; padding: 8px 22px; margin: -8px -22px; display: inline-block; }
+  .formats input:focus-visible + span { outline: 3px solid #fbb; }
+
+  #status { margin-top: 16px; font-size: 13px; color: var(--muted); min-height: 20px; }
+  #status.error { color: #d5164c; }
+  #status.ok { color: var(--ok); }
+
+  .result-card { margin-top: 28px; background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+    padding: 20px; display: flex; gap: 16px; align-items: center; text-align: left; flex-wrap: wrap; }
+  .result-card img { width: 160px; height: 90px; object-fit: cover; border-radius: 10px; flex-shrink: 0; background: #eee; }
+  .result-info { flex: 1; min-width: 200px; }
+  .result-info .title { font-weight: 700; font-size: 15px; margin-bottom: 4px; display: -webkit-box;
+    -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .result-info .meta { font-size: 13px; color: var(--muted); }
+  .warn { margin-top: 6px; font-size: 13px; color: #b45309; }
+
+  .notice { margin: 36px auto 0; max-width: 560px; font-size: 12.5px; color: var(--muted); line-height: 1.7;
+    background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; text-align: left; }
+  .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff; border-radius: 50%; animation: spin .8s linear infinite; margin-right: 8px; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (max-width: 520px) { .search-box { border-radius: 20px; flex-wrap: wrap; padding: 10px 14px; } .search-box .btn { width: 100%; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="icon">♪</div>HappyMP3</div>
+  <button class="ghost hidden" id="outBtn" type="button">나가기</button>
+</header>
+
+<main>
+  <!-- 1) 입장 비밀번호 -->
+  <section id="gate">
+    <h1>🔒 비밀번호를 입력하세요</h1>
+    <p class="sub">저작권 문제가 있을 수 있어서 비밀번호를 아는 분만 들어갈 수 있어요.</p>
+    <form class="gate" id="gateForm" autocomplete="off">
+      <label for="code" style="font-weight:700">입장 비밀번호</label>
+      <input id="code" type="password" inputmode="numeric" autocomplete="off" maxlength="20" required />
+      <button class="btn full" id="gateBtn" type="submit">들어가기</button>
+      <div id="gateStatus" class="error" role="alert" style="margin-top:12px;font-size:13px;color:#d5164c"></div>
+    </form>
+  </section>
+
+  <!-- 2) 변환기 -->
+  <section id="app" class="hidden">
+    <h1>유튜브 to MP3 · MP4</h1>
+    <p class="sub">유튜브 링크를 붙여 넣고 형식을 고른 뒤 「정보 보기」를 누르세요.<br>변환이 끝나면 파일이 내 컴퓨터로 내려받아져요.</p>
+
+    <div class="search-box">
+      <input id="urlInput" type="text" inputmode="url" placeholder="https://www.youtube.com/watch?v=..." aria-label="유튜브 링크" />
+      <button class="icon-btn" id="pasteBtn" type="button" title="클립보드에서 붙여 넣기">붙여넣기</button>
+      <button class="btn" id="infoBtn" type="button">정보 보기</button>
+    </div>
+
+    <div class="formats" role="radiogroup" aria-label="형식">
+      <label><input type="radio" name="fmt" value="mp3" checked /><span>MP3 (소리)</span></label>
+      <label><input type="radio" name="fmt" value="mp4" /><span>MP4 (영상)</span></label>
+    </div>
+
+    <div id="status" role="status"></div>
+
+    <div class="result-card hidden" id="resultCard">
+      <img id="thumb" alt="" />
+      <div class="result-info">
+        <div class="title" id="rTitle"></div>
+        <div class="meta" id="rMeta"></div>
+        <div class="warn hidden" id="rWarn"></div>
+      </div>
+      <button class="btn" id="dlBtn" type="button">내려받기</button>
+    </div>
+
+    <div class="notice">
+      <b>사용 전에 꼭 읽어 주세요.</b><br>
+      · 직접 만든 영상이나 이용을 허락받은 영상(저작권 만료·공유 허용)에만 쓰세요.<br>
+      · 저작권이 있는 영상은 유튜브 이용약관과 저작권법, 학교의 저작권 지침을 먼저 확인하세요.<br>
+      · 영상 길이 제한이 있고, 한 번에 하나만 변환돼요. 서버가 쉬고 있으면 첫 요청은 1분쯤 걸릴 수 있어요.
+    </div>
+  </section>
+</main>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  const API = (window.HAPPY_API || "").replace(/\/$/, "");
+  const $ = (id) => document.getElementById(id);
+  const store = { get() { try { return sessionStorage.getItem("happy.code") || ""; } catch { return ""; } },
+                  set(v) { try { sessionStorage.setItem("happy.code", v); } catch {} },
+                  clear() { try { sessionStorage.removeItem("happy.code"); } catch {} } };
+  let code = store.get(), currentUrl = "";
+
+  function show(inApp) {
+    $("gate").classList.toggle("hidden", inApp);
+    $("app").classList.toggle("hidden", !inApp);
+    $("outBtn").classList.toggle("hidden", !inApp);
+    if (!inApp) { $("code").value = ""; $("code").focus(); }
+  }
+  function status(msg, type) { const s = $("status"); s.textContent = msg || ""; s.className = type || ""; }
+  const fmtDur = (sec) => (sec || sec === 0) ? `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}` : "";
+  const selFmt = () => document.querySelector('input[name="fmt"]:checked').value;
+  const needSetup = () => !API || /CHANGE-ME/i.test(API);
+
+  async function call(path, body) {
+    return fetch(API + path, { method: "POST", headers: { "Content-Type": "application/json", "X-Access-Code": code },
+      body: JSON.stringify(body || {}) });
+  }
+  async function errText(resp) {
+    let t = ""; try { const j = await resp.json(); t = j.detail || ""; } catch { try { t = await resp.text(); } catch {} }
+    return typeof t === "string" ? t : JSON.stringify(t);
+  }
+  function backToGate(msg) { store.clear(); code = ""; show(false); $("gateStatus").textContent = msg || ""; }
+
+  $("gateForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    $("gateStatus").textContent = "";
+    if (needSetup()) { $("gateStatus").textContent = "서버 주소가 아직 설정되지 않았어요(config.js)."; return; }
+    code = $("code").value.trim();
+    $("gateBtn").disabled = true;
+    try {
+      const r = await call("/check");
+      if (r.ok) { store.set(code); show(true); $("urlInput").focus(); }
+      else { code = ""; $("code").value = ""; $("gateStatus").textContent = await errText(r) || "들어갈 수 없어요."; }
+    } catch { $("gateStatus").textContent = "서버에 연결하지 못했어요. 잠시 뒤에 다시 시도하세요(서버가 쉬고 있으면 1분쯤 걸려요)."; }
+    finally { $("gateBtn").disabled = false; }
+  });
+
+  $("outBtn").addEventListener("click", () => backToGate(""));
+  $("pasteBtn").addEventListener("click", async () => {
+    try { $("urlInput").value = await navigator.clipboard.readText(); } catch { $("urlInput").focus(); }
+  });
+  $("urlInput").addEventListener("keydown", (e) => { if (e.key === "Enter") $("infoBtn").click(); });
+
+  $("infoBtn").addEventListener("click", async () => {
+    const url = $("urlInput").value.trim();
+    if (!url) { status("유튜브 링크를 입력해 주세요.", "error"); return; }
+    $("resultCard").classList.add("hidden"); $("infoBtn").disabled = true; status("영상 정보를 가져오는 중…");
+    try {
+      const r = await call("/info", { url, format: selFmt() });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      const d = await r.json();
+      currentUrl = url;
+      $("thumb").src = d.thumbnail || ""; $("rTitle").textContent = d.title || "제목 없음";
+      $("rMeta").textContent = [d.uploader, fmtDur(d.duration)].filter(Boolean).join(" · ");
+      const w = $("rWarn");
+      if (d.tooLong) { w.textContent = `영상이 너무 길어요(최대 ${Math.floor(d.maxSeconds / 60)}분).`; w.classList.remove("hidden"); $("dlBtn").disabled = true; }
+      else { w.classList.add("hidden"); $("dlBtn").disabled = false; }
+      $("resultCard").classList.remove("hidden"); status("");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { $("infoBtn").disabled = false; }
+  });
+
+  function fileName(resp, fallback) {
+    const cd = resp.headers.get("Content-Disposition") || "";
+    let m = cd.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+    if (m) { try { return decodeURIComponent(m[1]); } catch {} }
+    m = cd.match(/filename\s*=\s*"?([^";]+)"?/i);
+    return m ? m[1] : fallback;
+  }
+
+  $("dlBtn").addEventListener("click", async () => {
+    if (!currentUrl) return;
+    const fmt = selFmt(), btn = $("dlBtn"), label = btn.textContent;
+    btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>변환 중…';
+    status(fmt === "mp4" ? "영상을 변환하는 중이에요. 몇 분 걸릴 수 있어요…" : "소리를 변환하는 중이에요…");
+    try {
+      const r = await call("/convert", { url: currentUrl, format: fmt });
+      if (r.status === 403 || r.status === 401) return backToGate(await errText(r));
+      if (!r.ok) throw new Error(await errText(r));
+      const got = (r.headers.get("Content-Type") || "").toLowerCase();
+      if (fmt === "mp4" && !got.startsWith("video/")) throw new Error("서버가 MP4를 지원하지 않아요. 새 서버를 올렸는지 확인하세요.");
+      const name = fileName(r, "download." + fmt);
+      const blob = await r.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      status("내려받기 완료: " + name, "ok");
+    } catch (err) { status("오류: " + err.message, "error"); }
+    finally { btn.disabled = false; btn.textContent = label; }
+  });
+
+  // 처음: 저장된 비밀번호가 있으면 서버에 다시 확인한 뒤 들어간다
+  (async () => {
+    show(false);
+    if (needSetup()) { $("gateStatus").textContent = "서버 주소가 아직 설정되지 않았어요(config.js)."; return; }
+    if (!code) return;
+    try { const r = await call("/check"); if (r.ok) { show(true); return; } } catch {}
+    store.clear(); code = "";
+  })();
+})();
+</script>
+</body>
+</html>

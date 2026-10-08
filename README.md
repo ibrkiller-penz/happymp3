@@ -1,0 +1,53 @@
+# HappyMP3 웹서버 (MP3 · MP4)
+
+유튜브 링크를 **MP3(소리) 또는 MP4(영상)** 파일로 바꿔 **내려받게** 하는 웹페이지와 서버.
+입장할 때 **비밀번호를 서버가 직접 확인**한다(화면만 막는 것이 아니다).
+
+```
+26_HappyMP3-웹서버/
+  server/   변환 서버 (FastAPI + yt-dlp + ffmpeg)  → Render 에 올린다
+  web/      웹페이지 (index.html + config.js)       → Firebase Hosting happymp3.web.app 에 올린다
+  firebase.json · .firebaserc                      → 웹페이지 배포 설정(프로젝트 happymp3)
+```
+
+## 어떻게 동작하나
+1. 웹페이지가 먼저 **비밀번호 화면**을 보여 준다. 맞으면 변환기가 열린다.
+2. 링크를 붙여 넣고 **MP3 / MP4** 를 고른 뒤 「정보 보기」 → 제목·길이 확인 → 「내려받기」.
+3. 서버가 변환해서 파일을 돌려주면 브라우저가 **다운로드**한다.
+- 서버는 모든 요청마다 `X-Access-Code` 를 확인한다. **틀린 시도가 5번 쌓이면 그 주소를 10분 막는다.**
+- 유튜브 주소(youtube.com, youtu.be)만 받는다. 영상 길이 제한(기본 30분), 한 번에 하나만 변환.
+- 서버에 `ACCESS_CODE` 가 없으면 모든 요청을 거절한다(비밀번호 없이 열리는 일이 없다).
+- (선택) `ALLOWED_EMAILS` 를 정하면 구글 로그인 확인도 함께 한다.
+
+## 올리는 순서 (직접 해야 하는 일: Render 로그인·환경변수)
+### 1) 서버 올리기 (Render)
+1. 이 폴더의 `server/` 를 GitHub 저장소로 올린다(비공개 권장). 저장소 맨 위에 `Dockerfile` 이 오도록 `server/` 안의 파일을 저장소 루트에 둔다.
+2. render.com → New → Web Service → 그 저장소 → **Docker** 선택(또는 `render.yaml` Blueprint).
+3. **Environment** 에 넣을 값
+   | 이름 | 값 |
+   |---|---|
+   | `ACCESS_CODE` | 입장 비밀번호(`1004`) — 코드나 저장소에 적지 말고 여기서만 |
+   | `ALLOWED_ORIGINS` | `https://happymp3.web.app` |
+   | `MAX_SECONDS` | `1800` (선택) |
+   | `MAX_HEIGHT` | `720` (선택, MP4 최대 세로 해상도) |
+4. 배포가 끝나면 주소(예: `https://happymp3-xxxx.onrender.com`)를 확인하고 `…/health` 가 `{"ok":true}` 인지 본다.
+
+### 2) 웹페이지 올리기 (Firebase)
+1. `web/config.js` 의 `HAPPY_API` 를 위 서버 주소로 바꾼다(끝에 `/` 없이).
+2. `firebase deploy --only hosting --project happymp3` (이 폴더에서).
+3. https://happymp3.web.app 에서 비밀번호 → 변환이 되는지 확인한다.
+- 옛 서버(`happymp3.onrender.com`)는 구글 로그인 방식이라 이 웹페이지와 맞지 않는다. 새 서버를 올린 뒤 쓴다.
+
+## 시험
+```
+cd server
+python -m pytest -q        # 비밀번호·차단·형식·정리 시험 (네트워크 없음)
+# 실제 변환(저작권이 허락된 영상만): LIVE_URL=... FFMPEG_LOCATION=... python -m pytest -q -k live
+```
+2026-10-08 확인: 위 시험 14개 통과, Blender 재단의 CC-BY 영상(Big Buck Bunny)으로 MP3(192kbps)·MP4(H.264+AAC, 360p) 변환·다운로드를 **이 PC 에서** 확인.
+
+## 알아 둘 점 (솔직하게)
+- **유튜브가 서버 IP 를 막을 수 있다.** 이 PC(집·학교 인터넷)에서는 잘 되지만, Render 같은 클라우드 서버 주소에서는 "로봇이 아님을 확인하세요" 오류로 막히는 일이 흔하다. 그러면 yt-dlp 쿠키 설정이 필요하거나 변환이 안 될 수 있다. **Render 에서의 동작은 아직 확인하지 못했다.**
+- Render 무료 요금제는 한동안 쓰지 않으면 쉬어서 첫 요청이 1분쯤 걸린다. 변환 중에 메모리가 모자라면 MP4 해상도(`MAX_HEIGHT`)를 낮춘다.
+- 비밀번호가 **4자리 숫자**라서 서버가 막아 주더라도(주소당 5번 틀리면 10분 차단) 주소를 바꿔 가며 시도하는 사람을 완벽히 막지는 못한다. 더 단단히 하려면 더 긴 비밀번호나 `ALLOWED_EMAILS`(구글 로그인)를 함께 쓴다.
+- **저작권**: 직접 만든 영상이나 이용을 허락받은 영상에만 쓴다. 유튜브 이용약관과 저작권법, 학교 지침을 확인한다.

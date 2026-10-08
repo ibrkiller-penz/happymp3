@@ -1,0 +1,18 @@
+# Render(render.com) 에서 이 저장소를 Blueprint 로 올릴 때 쓰는 설정.
+# ACCESS_CODE 는 값을 여기에 적지 않는다. Render 화면(Environment)에서 직접 넣는다.
+services:
+  - type: web
+    name: happymp3
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ACCESS_CODE
+        sync: false
+      - key: ALLOWED_ORIGINS
+        value: https://happymp3.web.app
+      - key: MAX_SECONDS
+        value: "1800"
+      - key: MAX_HEIGHT
+        value: "720"
